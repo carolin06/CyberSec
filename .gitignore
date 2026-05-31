@@ -6,3 +6,4 @@ models/*.onnx
 data/cmu/
 *.egg-info/
 .DS_Store
+pip_install.log
