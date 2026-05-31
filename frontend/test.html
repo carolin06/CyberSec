@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SentinelFlow — SDK Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 16px;
+      min-height: 100vh;
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+    .subtitle { font-size: 0.85rem; color: #94a3b8; margin-bottom: 32px; }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 { font-size: 0.9rem; font-weight: 600; color: #94a3b8;
+                text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+
+    textarea {
+      width: 100%;
+      height: 140px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #f1f5f9;
+      font-size: 1rem;
+      padding: 12px;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus { border-color: #6366f1; }
+
+    .counter {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #6366f1;
+      text-align: center;
+      margin: 8px 0 4px;
+    }
+    .counter-label { font-size: 0.8rem; color: #64748b; text-align: center; }
+
+    .scenario-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .scenario-btn {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      background: #0f172a;
+      color: #94a3b8;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .scenario-btn:hover { border-color: #6366f1; color: #e2e8f0; }
+    .scenario-btn.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+
+    .health-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .health-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #475569;
+      flex-shrink: 0;
+    }
+    .health-dot.ok  { background: #22c55e; }
+    .health-dot.err { background: #ef4444; }
+
+    a { color: #6366f1; font-size: 0.85rem; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .info { font-size: 0.75rem; color: #64748b; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+  <h1>SentinelFlow SDK Test</h1>
+  <p class="subtitle">Type below — keystroke dynamics are captured and sent to the ingestion service.</p>
+
+  <!-- Typing area -->
+  <div class="card">
+    <h2>Typing Area</h2>
+    <textarea id="typeArea" placeholder="Start typing here…" autofocus></textarea>
+    <p class="info">Key values are never captured — only physical key codes (e.g. KeyA, not 'a').</p>
+  </div>
+
+  <!-- Event counter -->
+  <div class="card">
+    <h2>Events Sent</h2>
+    <div class="counter" id="counter">0</div>
+    <div class="counter-label">keystrokes + mouse events flushed to backend</div>
+  </div>
+
+  <!-- Scenario selector -->
+  <div class="card">
+    <h2>Demo Scenario</h2>
+    <div class="scenario-row">
+      <button class="scenario-btn active" data-scenario="normal">Normal</button>
+      <button class="scenario-btn"        data-scenario="fraud">Fraud</button>
+      <button class="scenario-btn"        data-scenario="bot">Bot</button>
+      <button class="scenario-btn"        data-scenario="coached">Coached</button>
+    </div>
+    <p class="info">Fraud / Bot / Coached inject synthetic events with configured timing to simulate attack patterns.</p>
+  </div>
+
+  <!-- Backend health -->
+  <div class="card">
+    <h2>Backend Status</h2>
+    <div class="health-row">
+      <div class="health-dot" id="healthDot"></div>
+      <a href="http://localhost:8000/health" target="_blank">http://localhost:8000/health</a>
+    </div>
+    <p class="info" id="healthMsg">Checking…</p>
+  </div>
+
+  <script src="sdk.js"></script>
+  <script>
+    // Event counter
+    window.addEventListener("sentinelflow:sent", (e) => {
+      document.getElementById("counter").textContent = e.detail.total;
+    });
+
+    // Scenario buttons
+    document.querySelectorAll(".scenario-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".scenario-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        SentinelFlow.setScenario(btn.dataset.scenario);
+      });
+    });
+
+    // Health check
+    async function checkHealth() {
+      const dot = document.getElementById("healthDot");
+      const msg = document.getElementById("healthMsg");
+      try {
+        const res = await fetch("http://localhost:8000/health");
+        const data = await res.json();
+        dot.className = "health-dot ok";
+        msg.textContent = `Backend is up — ${JSON.stringify(data)}`;
+      } catch {
+        dot.className = "health-dot err";
+        msg.textContent = "Backend unreachable. Start it with: uvicorn main:app --reload --port 8000";
+      }
+    }
+
+    checkHealth();
+    setInterval(checkHealth, 10000);
+  </script>
+</body>
+</html>
